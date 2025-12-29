@@ -1,0 +1,66 @@
+# --------------------------------------------------
+# Imports
+# --------------------------------------------------
+import os
+import asyncio
+from dotenv import load_dotenv
+
+from Utils.Agents import (
+    Cardiologist,
+    Psychologist,
+    Pulmonologist,
+    MultidisciplinaryTeam,
+)
+
+# --------------------------------------------------
+# Environment Setup
+# --------------------------------------------------
+load_dotenv("apikey.env")
+
+
+# --------------------------------------------------
+# Async Pipeline
+# --------------------------------------------------
+async def run_pipeline():
+    # Load medical report
+    report_path = os.path.join(
+        "Medical Reports",
+        "Medical Report - Michael Johnson - Panic Attack Disorder.txt"
+    )
+
+    with open(report_path, "r", encoding="utf-8") as file:
+        medical_report = file.read()
+
+    # Initialize specialist agents
+    cardiologist = Cardiologist(medical_report)
+    psychologist = Psychologist(medical_report)
+    pulmonologist = Pulmonologist(medical_report)
+
+    # Run specialist agents in parallel
+    cardiology_result, psychology_result, pulmonology_result = await asyncio.gather(
+        cardiologist.run(),
+        psychologist.run(),
+        pulmonologist.run()
+    )
+
+    # Initialize multidisciplinary team agent
+    mdt_agent = MultidisciplinaryTeam(
+        cardiologist_report=cardiology_result,
+        psychologist_report=psychology_result,
+        pulmonologist_report=pulmonology_result
+    )
+
+    # Run MDT synthesis
+    final_diagnosis = await mdt_agent.run()
+
+    return final_diagnosis
+
+
+# --------------------------------------------------
+# Output Handling
+# --------------------------------------------------
+def save_results(final_diagnosis: str):
+    output_dir = "Results"
+    os.makedirs(output_dir, exist_ok=True)
+
+    output_path = os.path.join(output_d
