@@ -1,0 +1,162 @@
+from langchain_core.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+
+
+class BaseAgent:
+    """
+    Base class for all medical AI agents.
+    Handles prompt creation, model invocation, and response retrieval.
+    """
+
+    def __init__(self, role, medical_report=None, extra_info=None):
+        self.role = role
+        self.medical_report = medical_report
+        self.extra_info = extra_info or {}
+
+        self.prompt_template = self._build_prompt()
+        self.model = ChatOpenAI(
+            model="gpt-5",
+            temperature=0
+        )
+
+    def _build_prompt(self) -> PromptTemplate:
+        """Create a role-specific prompt template."""
+        if self.role == "MultidisciplinaryTeam":
+            template = """
+Act as a multidisciplinary team of healthcare professionals.
+
+You will receive reports from a Cardiologist, Psychologist, and Pulmonologist.
+
+Task:
+- Analyze all specialist reports.
+- Identify THREE possible health issues.
+- Provide a brief clinical rationale for each.
+
+Cardiologist Report:
+{cardiologist_report}
+
+Psychologist Report:
+{psychologist_report}
+
+Pulmonologist Report:
+{pulmonologist_report}
+"""
+            return PromptTemplate.from_template(template)
+
+        role_templates = {
+            "Cardiologist": """
+Act as a cardiologist.
+
+Task:
+- Review the patient's cardiac workup (ECG, blood tests, Holter monitor, echocardiogram).
+- Identify any subtle or overlooked cardiac causes.
+
+Focus:
+- Arrhythmias
+- Structural abnormalities
+- Other cardiovascular contributors
+
+Output:
+- Possible cardiac causes
+- Recommended next diagnostic or management steps
+
+Medical Report:
+{medical_report}
+""",
+            "Psychologist": """
+Act as a psychologist.
+
+Task:
+- Review the patient's report and perform a psychological assessment.
+
+Focus:
+- Anxiety disorders
+- Depression
+- Trauma or stress-related conditions
+
+Output:
+- Possible mental health issues
+- Recommended therapeutic or clinical next steps
+
+Medical Report:
+{medical_report}
+""",
+            "Pulmonologist": """
+Act as a pulmonologist.
+
+Task:
+- Review the patient's report and perform a pulmonary assessment.
+
+Focus:
+- Asthma
+- COPD
+- Other respiratory or breathing disorders
+
+Output:
+- Possible respiratory issues
+- Recommended tests or treatments
+
+Medical Report:
+{medical_report}
+"""
+        }
+
+        if self.role not in role_templates:
+            raise ValueError(f"Unsupported agent role: {self.role}")
+
+        return PromptTemplate.from_template(role_templates[self.role])
+
+    def run(self):
+        """Execute the agent and return the model response."""
+        print(f"[INFO] Running {self.role} agent")
+
+        try:
+            prompt = self.prompt_template.format(
+                medical_report=self.medical_report,
+                **self.extra_info
+            )
+            response = self.model.invoke(prompt)
+            return response.content
+        except Exception as exc:
+            print(f"[ERROR] {self.role} agent failed: {exc}")
+            return None
+
+
+# ------------------------------------------------------------------
+# Specialized Agents
+# ------------------------------------------------------------------
+
+class Cardiologist(BaseAgent):
+    def __init__(self, medical_report):
+        super().__init__(
+            role="Cardiologist",
+            medical_report=medical_report
+        )
+
+
+class Psychologist(BaseAgent):
+    def __init__(self, medical_report):
+        super().__init__(
+            role="Psychologist",
+            medical_report=medical_report
+        )
+
+
+class Pulmonologist(BaseAgent):
+    def __init__(self, medical_report):
+        super().__init__(
+            role="Pulmonologist",
+            medical_report=medical_report
+        )
+
+
+class MultidisciplinaryTeam(BaseAgent):
+    def __init__(self, cardiologist_report, psychologist_report, pulmonologist_report):
+        super().__init__(
+            role="MultidisciplinaryTeam",
+            extra_info={
+                "cardiologist_report": cardiologist_report,
+                "psychologist_report": psychologist_report,
+                "pulmonologist_report": pulmonologist_report,
+            }
+        )
